@@ -5,44 +5,152 @@ def update_quality(items)
 end
 
 def update_item(item)
-  if item.name == 'Aged Brie'
-    item.sell_in -= 1
-    if item.sell_in < 0
-      item.quality += 2
-    else
-      item.quality += 1
-    end
-    item.quality = 50 if 50 < item.quality
-    item.quality = 0  if item.quality < 0
-  elsif item.name == 'Backstage passes to a TAFKAL80ETC concert'
-    item.sell_in -= 1
-    item.quality += 1
-    if item.sell_in < 5
-      item.quality += 2
-    elsif item.sell_in < 10
-      item.quality += 1
-    end
-    item.quality = 50 if 50 < item.quality
-    item.quality = 0  if item.sell_in < 0
-  elsif item.name == 'Sulfuras, Hand of Ragnaros'
-  elsif item.name == "NORMAL ITEM"
-    item.sell_in -= 1
-    if item.sell_in < 0
-      item.quality -= 2
-    else
-      item.quality -= 1
-    end
-    item.quality = 0 if item.quality < 0
-  elsif item.name == "Conjured Mana Cake"
-    item.sell_in -= 1
-    if 0 < item.sell_in
-      item.quality -= 2
-    else
-      item.quality -= 4
-    end
-    item.quality = 0 if item.quality < 0
+  case item.name
+  when 'Aged Brie'
+    UpdateAgedBrie.new(item).call
+  when 'Backstage passes to a TAFKAL80ETC concert'
+    UpdateBackstagePass.new(item).call
+  when 'Sulfuras, Hand of Ragnaros'
+  when "NORMAL ITEM"
+    UpdateNormal.new(item).call
+  when "Conjured Mana Cake"
+    UpdateManaCake.new(item).call
   else
     raise item.name
+  end
+end
+
+class UpdateItem
+  attr_reader :item, :max, :min, :sell_delta, :reg_delta, :expired_delta
+
+  def call
+    item.sell_in -= 1
+    update_quality
+  end
+
+  def set_to_min
+    item.quality = min
+  end
+
+  def set_to_max
+    item.quality = max
+  end
+
+  def quality_above_max?
+    max < item.quality
+  end
+
+  def quality_below_min?
+    item.quality < min
+  end
+
+  def decrease_quality
+    if expired?
+      decrease_by(expired_delta)
+    else
+      decrease_by(reg_delta)
+    end
+  end
+
+  def increase_quality
+    if expired?
+      increase_by(expired_delta)
+    else
+      increase_by(reg_delta)
+    end
+  end
+
+  def check_quality_bounds
+    set_to_max if quality_above_max?
+    set_to_min if quality_below_min?
+  end
+
+  def expired?
+    item.sell_in < 0
+  end
+
+  def increase_by(amount)
+    item.quality += amount
+  end
+
+  def decrease_by(amount)
+    item.quality -= amount
+  end
+end
+
+class UpdateAgedBrie < UpdateItem
+  def initialize(item)
+    @item = item
+    @sell_delta = 1
+    @expired_delta = 2
+    @reg_delta = 1
+    @max = 50
+    @min = 0
+  end
+
+  def update_quality
+    increase_quality
+    check_quality_bounds
+  end
+end
+
+class UpdateBackstagePass < UpdateItem
+  def initialize(item)
+    @item = item
+    @max = 50
+    @min = 0
+  end
+
+  def update_quality
+    if expired?
+      set_to_min
+    else
+      check_how_close
+      increase_quality
+    end
+    check_quality_bounds
+  end
+
+  def check_how_close
+    if item.sell_in < 5
+      @reg_delta = 3
+    elsif item.sell_in < 10
+      @reg_delta = 2
+    else
+     @reg_delta = 1
+    end
+  end
+end
+
+class UpdateManaCake < UpdateItem
+  def initialize(item)
+    @item = item
+    @sell_delta = 1
+    @expired_delta = 4
+    @reg_delta = 2
+    @max = 50
+    @min = 0
+  end
+
+  def update_quality
+    decrease_quality
+    check_quality_bounds
+  end
+end
+
+class UpdateNormal < UpdateItem
+  def initialize(item)
+    @item = item
+    @sell_delta = 1
+    @expired_delta = 2
+    @reg_delta = 1
+    @max = 50
+    @min = 0
+  end
+
+  def update_quality
+    decrease_quality
+    check_quality_bounds
   end
 end
 
